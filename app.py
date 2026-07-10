@@ -175,7 +175,7 @@ with st.spinner("Running model inference..."):
         "oldbalanceDest": oldbalanceDest, "newbalanceDest": newbalanceDest
     }
     try:
-        response = requests.post("http://127.0.0.1:8000/predict", json=payload, timeout=10)
+        response = requests.post("https://credit-card-fraud-detection-oxvc.onrender.com", json=payload, timeout=10)
         result = response.json()
     except requests.exceptions.ConnectionError:
         st.error("❌ Cannot connect to backend. Run: `uvicorn main:app --reload`")
