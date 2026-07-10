@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import requests
@@ -126,7 +127,11 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Header ───────────────────────────────────────────────────────────────────
+API_URL = os.environ.get(
+    "API_URL",
+    "https://credit-card-fraud-detection-oxvc.onrender.com"
+)
+
 st.markdown("""
 <div class="sentinel-header">
   <div style="font-size:2rem">🛡️</div>
@@ -137,7 +142,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### ⚙️ Transaction Input")
     st.markdown("**Transaction**")
@@ -156,7 +160,6 @@ with st.sidebar:
     st.markdown("---")
     analyze = st.button("🔍 Analyze Transaction", type="primary", use_container_width=True)
 
-# ── Idle state ────────────────────────────────────────────────────────────────
 if not analyze:
     st.markdown("""
     <div class="idle-box">
@@ -167,7 +170,6 @@ if not analyze:
     """, unsafe_allow_html=True)
     st.stop()
 
-# ── API call ──────────────────────────────────────────────────────────────────
 with st.spinner("Running model inference..."):
     payload = {
         "step": step, "type": type_val, "amount": amount,
@@ -175,8 +177,16 @@ with st.spinner("Running model inference..."):
         "oldbalanceDest": oldbalanceDest, "newbalanceDest": newbalanceDest
     }
     try:
-        response = requests.post("https://credit-card-fraud-detection-oxvc.onrender.com", json=payload, timeout=10)
+        response = requests.post(
+        f"{API_URL}/predict",
+        json=payload,
+        timeout=10)
+        if response.status_code != 200:
+            st.error(f"Backend error ({response.status_code})")
+            st.json(response.json())
+            st.stop()
         result = response.json()
+
     except requests.exceptions.ConnectionError:
         st.error("❌ Cannot connect to backend. Run: `uvicorn main:app --reload`")
         st.stop()
@@ -190,7 +200,6 @@ threshold = result.get('threshold_used', 0.15)
 risk_cls  = risk.lower()
 pct       = proba * 100
 
-# ── Verdict banner ────────────────────────────────────────────────────────────
 actions = {
     "HIGH":   "🚨 Block transaction immediately. Freeze origin account pending manual review.",
     "MEDIUM": "⚠️ Flag for secondary analyst review. Do not process until cleared.",
@@ -208,7 +217,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Metric cards (native st.metric for reliability) ───────────────────────────
 val_color = "green" if risk == "LOW" else ("yellow" if risk == "MEDIUM" else "red")
 pred_txt  = "FRAUD 🔴" if result['prediction'] == 1 else "LEGIT 🟢"
 
@@ -224,7 +232,6 @@ with col4:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ── Probability bar ───────────────────────────────────────────────────────────
 bar_color = "#22c55e" if risk == "LOW" else ("#f59e0b" if risk == "MEDIUM" else "#ef4444")
 bar_w     = min(int(pct), 100)
 
@@ -244,7 +251,6 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 
-# ── Signal checks (native Streamlit — no HTML) ───────────────────────────────
 st.markdown("---")
 st.markdown("**🔍 Rule-Based Signals**")
 
@@ -265,7 +271,6 @@ with s6: st.metric("Depletion Rate",    "🚩 YES" if depletion_pct>90 else "✅
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ── Plain-English SHAP explanation (native Streamlit — no HTML) ──────────────
 FEAT_MAP = {
     "error_diff":     ("💸 Balance Mismatch",      "Money left the origin but didn't arrive as expected — accounting inconsistency that's near-impossible in legitimate transactions."),
     "orig_depletion": ("🔻 Account Drain Rate",    "Origin sent a very large fraction of its total balance. Fraudsters typically drain accounts in one go rather than partial amounts."),
@@ -322,7 +327,6 @@ if explanations:
                     )
             st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
 
-    # ── SHAP chart ────────────────────────────────────────────────────────────
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<div class="section-label">📊 Feature Impact (SHAP Values)</div>', unsafe_allow_html=True)
 
