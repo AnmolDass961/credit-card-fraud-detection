@@ -180,7 +180,7 @@ with st.spinner("Running model inference..."):
         response = requests.post(
         f"{API_URL}/predict",
         json=payload,
-        timeout=10)
+        timeout=90)
         if response.status_code != 200:
             st.error(f"Backend error ({response.status_code})")
             st.json(response.json())
